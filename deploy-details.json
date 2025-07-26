@@ -1,0 +1,7 @@
+{
+    "port": "8081",
+    "environments": {
+        "DATABASE_URL": "_DATABASE_URL_",
+        "PORT": "8081"
+    }
+}
