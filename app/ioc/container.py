@@ -14,8 +14,7 @@ from app.services.manager import Manager
 
 class Container(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
-        modules=["app.routers.main_router",
-                 "app.ioc.container"])
+        modules=["app.ioc.container"])
 
     logger = providers.Singleton(logging.getLogger, __name__)
 
