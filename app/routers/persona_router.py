@@ -12,7 +12,7 @@ persona_router = APIRouter(prefix="/personas")
 async def login(
         data: PersonaCreate,
         manager: PersonaManager = Depends(get_persona_manager)):
-    manager.create_person(data)
+    manager.create_persona(data)
     return {}
 
 
