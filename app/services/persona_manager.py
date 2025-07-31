@@ -55,7 +55,8 @@ class PersonaManager():
         self.logger.info(f"Creando persona con ID: {data.id}")
         self.persona_repository.create(data)
         self.logger.info(f"Persona creada exitosamente: {data.id}")
-        self.logger.info(f"Cantidad de miembros de familia: {familia.id} actualizada")
+        self.logger.info(
+            f"Cantidad de miembros de familia: {familia.id} actualizada")
 
         self.familia_repository.update(familia.id, familia)
 
@@ -67,6 +68,7 @@ class PersonaManager():
         if not persona:
             self.logger.error(f"no existe una persona con ID: {id_persona}")
             raise AppException("Esa persona no está registrada")
+        self._update_family_members(persona.idFamilia, data.idFamilia)
         return self.persona_repository.update(id_persona, data)
 
     def delete_persona(self, id_persona: str):
@@ -78,7 +80,22 @@ class PersonaManager():
         if not persona:
             self.logger.error(f"no existe una persona con ID: {id_persona}")
             raise AppException("Esa persona no está registrada")
+        familia: Familia = self.familia_repository.get(persona.idFamilia)
+        familia.integrantes = familia.integrantes-1
+        self.familia_repository.update(familia)
         return self.persona_repository.update(id_persona, persona)
 
     def get_personas(self, page: int, page_size: int):
         return self.persona_repository.paginate(page, page_size)
+
+    def _update_family_members(self, id_familia_old: int, id_familia_new):
+        if id_familia_new is not None and id_familia_old != id_familia_new:
+            familia_old = self.familia_repository.get(id_familia_old)
+            familia_new = self.familia_repository.get(id_familia_new)
+            if familia_new is None:
+                self.logger.error(f"Familia no encontrada: {id_familia_new}")
+                raise AppException("La Familia asignada no existe")
+            familia_old.integrantes = familia_old.integrantes-1
+            familia_new.integrantes = familia_new.integrantes+1
+            self.familia_repository.update(id_familia_old, familia_old)
+            self.familia_repository.update(id_familia_new, familia_new)
