@@ -10,6 +10,7 @@ from app.persistence.repository.persona_repository.interface.interface_persona_r
 from app.persistence.repository.repository_factory import RepositoryFactory
 from app.persistence.repository.user_repository.interface.interface_user_repository import IUsuarioRepository
 from app.services.familia_manager import FamiliaManager
+from app.services.parcialidad_manager import ParcialidadManager
 from app.services.persona_manager import PersonaManager
 
 
@@ -45,4 +46,16 @@ def get_familia_manager(
     return FamiliaManager(
         logger=logger,
         familia_repository=factory.get_repository(IFamiliaRepository)
+    )
+
+
+@inject
+def get_parcialidad_manager(
+    db: Session = Depends(get_db),
+    logger: logging.Logger = Depends(Provide[Container.logger])
+) -> ParcialidadManager:
+    factory = RepositoryFactory(db=db)
+    return ParcialidadManager(
+        parcialidad_repository=factory.get_repository(IParcialiadRepository),
+        logger=logger
     )

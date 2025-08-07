@@ -34,14 +34,12 @@ class FamiliaManager:
                 f"El número de familia ya existe: {data.idFamilia}")
             raise AppException("La Familia a crear ya existe")
 
-        familia = self.familia_repository.create(
+        self.familia_repository.create(
             Familia(integrantes=0, id=data.idFamilia))
         self.logger.info(f"Familia creada con ID específico: {data.idFamilia}")
         return EstadoResponse(
             estado="success",
-            message="Familia creada exitosamente",
-            data=familia
-        )
+            message="Familia creada exitosamente")
 
     def delete(self, familia_id: int) -> EstadoResponse:
         self.logger.info(f"Intentando eliminar familia con ID: {familia_id}")

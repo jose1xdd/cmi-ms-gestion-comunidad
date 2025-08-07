@@ -4,7 +4,14 @@ from app.persistence.repository.base_repository.impl.base_repository import Base
 from app.persistence.repository.parcialidad_repository.interface.interface_parcialidad_repository import IParcialiadRepository
 
 
-class ParcialidadRepository(BaseRepository,IParcialiadRepository):
+class ParcialidadRepository(BaseRepository, IParcialiadRepository):
     def __init__(self, db: Session):
         # Llamar al constructor de la clase base
         super().__init__(Parcialidad, db)
+
+    def find_by_name(self, name: str) -> Parcialidad:
+        return (
+            self.db.query(Parcialidad)
+            .filter(Parcialidad.nombre == name)
+            .first()
+        )
