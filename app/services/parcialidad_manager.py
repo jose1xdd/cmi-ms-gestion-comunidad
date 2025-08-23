@@ -34,3 +34,25 @@ class ParcialidadManager():
         self.parcialidad_repository.delete(parcialidad.id)
         return EstadoResponse(estado="Exitoso",
                               message="Parcialidad eliminada exitosamente")
+
+    def get_parcialidades(self, page: int, page_size: int):
+        parcialidades = self.parcialidad_repository.paginate(page, page_size)
+        return parcialidades
+
+    def get_parcialidad_by_id(self, id: int):
+        parcialidad = self.parcialidad_repository.get(id)
+        if parcialidad is None:
+            raise AppException("Parcialidad no Encontrada", 404)
+        return parcialidad
+
+    def update_parcialidad_by_id(self, id: int, parcialidad_data: ParcialidadCreate):
+        parcialidad = self.parcialidad_repository.get(id)
+        if parcialidad is None:
+            raise AppException("Parcialidad a actualizar no existe")
+        parcialidad_name = self.parcialidad_repository.find_by_name(
+            parcialidad_data.nombre_parcialidad)
+        if parcialidad_name is not None:
+            raise AppException("ya existe una parcialidad con ese nombre")
+        parcialidad.nombre = parcialidad_data.nombre_parcialidad
+        self.parcialidad_repository.update(id, parcialidad)
+        return EstadoResponse(estado="Exitoso", message="Parcialidad actualizada exitosamente")

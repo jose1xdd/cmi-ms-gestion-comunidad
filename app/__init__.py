@@ -13,7 +13,6 @@ from app.routers.persona_router import persona_router
 from app.routers.familia_router import familia_router
 from app.routers.parcialidad_router import parcialialidad_router
 
-
 def create_app() -> FastAPI:
     app = FastAPI()
 
