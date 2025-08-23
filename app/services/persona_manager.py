@@ -97,7 +97,7 @@ class PersonaManager:
     def get_personas(self, page: int, page_size: int) -> PaginatedPersonas:
         self.logger.info(
             f"Obteniendo personas: página {page}, tamaño {page_size}")
-        paginated = self.persona_repository.paginate(page, page_size)
+        paginated = self.persona_repository.find_all_personas(page, page_size)
         return paginated
 
     def get_persona(self, id: str):

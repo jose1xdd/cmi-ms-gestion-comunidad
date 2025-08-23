@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import JSONResponse
 
 from app.ioc.container import get_familia_manager
 from app.models.inputs.familia.familia_create import FamiliaCreate
@@ -16,14 +17,15 @@ familia_router = APIRouter(prefix="/familias", tags=["Familia"])
 async def create(
         data: FamiliaCreate,
         manager: FamiliaManager = Depends(get_familia_manager)):
-    return manager.create(data)
-
+    response = manager.create(data)
+    return JSONResponse(content=response.model_dump(exclude_none=True), status_code=201)
 
 @familia_router.delete("/{id_familia}", status_code=status.HTTP_200_OK, response_model=EstadoResponse)
 async def delete(
         id_familia: int,
         manager: FamiliaManager = Depends(get_familia_manager)):
-    return manager.delete(id_familia)
+    response = manager.delete(id_familia)
+    return JSONResponse(content=response.model_dump(exclude_none=True), status_code=200)
 
 
 @familia_router.get("", status_code=status.HTTP_200_OK, response_model=PaginatedFamilias)
