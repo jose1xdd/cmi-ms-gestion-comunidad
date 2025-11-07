@@ -80,8 +80,7 @@ def get_familias(
 def search_familia(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, le=100),
-    query: str = Query(...,
-                       description="Buscar por nombre, apellido o cédula del representante"),
+    query: Optional[str] = Query(None),
     manager: FamiliaManager = Depends(get_familia_manager)
 ):
     """

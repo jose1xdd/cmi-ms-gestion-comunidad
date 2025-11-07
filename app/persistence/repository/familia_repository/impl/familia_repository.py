@@ -27,24 +27,31 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
     def search_by_representante(self, page: int, page_size: int, query: str):
         """
         Busca familias cuyo representante coincida parcialmente por documento, nombre o apellido.
+        Si el query está vacío, retorna todas las familias.
         """
-        like_query = f"%{query}%"
+        query = query.strip() if query else ""
 
-        result = (
+        base_query = (
             self.db.query(Familia)
             .join(Persona, Familia.representante_id == Persona.id)
             .options(joinedload(Familia.representante), joinedload(Familia.personas))
-            .filter(
-                or_(
-                    Persona.id.like(like_query),
-                    func.lower(Persona.nombre).like(func.lower(like_query)),
-                    func.lower(Persona.apellido).like(func.lower(like_query))
-                )
-            )
             .order_by(Persona.apellido, Persona.nombre)
         )
 
-        return self.paginate(page, page_size, result)
+        # Si no hay query, no aplicar filtros
+        if not query:
+            return self.paginate(page, page_size, base_query)
+
+        like_query = f"%{query}%"
+        filtered_query = base_query.filter(
+            or_(
+                Persona.id.like(like_query),
+                func.lower(Persona.nombre).like(func.lower(like_query)),
+                func.lower(Persona.apellido).like(func.lower(like_query)),
+            )
+        )
+
+        return self.paginate(page, page_size, filtered_query)
 
     def get_familias_dashboard(self, page: int, page_size: int):
         """
@@ -196,6 +203,7 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
             miembros_activos=result.miembros_activos or 0,
             defunciones=result.defunciones or 0,
         )
+
     def get_estadisticas_generales(self) -> dict:
         """
         Devuelve el total de familias y el total de personas registradas.

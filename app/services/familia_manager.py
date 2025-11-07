@@ -94,7 +94,7 @@ class FamiliaManager:
             f"[FamiliaManager] Consultando familias | Página: {page}, Tamaño: {page_size}")
         result = self.familia_repository.paginate(page, page_size)
         self.logger.info(
-            f"[FamiliaManager] ✅ Consulta completada | Total familias en página: {len(result.items)}")
+            f"[FamiliaManager] ✅ Consulta completada | Total familias en página: {result.__len__()}")
         return result
 
     def get_familia(self, familia_id: int) -> FamiliaOut:
