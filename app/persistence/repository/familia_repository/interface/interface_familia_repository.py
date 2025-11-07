@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import List, Optional
 from app.models.inputs.familia.familia_create import FamiliaCreate
 from app.models.outputs.familia.familia_output import FamiliaResumenOut
@@ -8,18 +8,26 @@ from app.persistence.repository.base_repository.interface.ibase_repository impor
 
 
 class IFamiliaRepository(IBaseRepository[Familia, int], ABC):
+    @abstractmethod
     def bulk_insert(self, familias: List[FamiliaCreate]) -> int:
         pass
 
+    @abstractmethod
     def search_by_representante(self, page: int, page_size: int, query: str) -> PaginatedFamilias:
         pass
 
+    @abstractmethod
     def get_familias_dashboard(self, page: int, page_size: int):
         pass
 
+    @abstractmethod
     def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int):
         pass
+
+    @abstractmethod
     def get_familia_resumen(self, id_familia: int) -> FamiliaResumenOut:
         pass
+
+    @abstractmethod
     def get_estadisticas_generales(self) -> dict:
         pass
