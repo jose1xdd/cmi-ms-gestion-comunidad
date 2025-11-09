@@ -17,7 +17,6 @@ class Persona(Base):
     escolaridad = Column(Enum(EnumEscolaridad))
     direccion = Column(String(200))
     telefono = Column(String(20))
-    activo = Column(Boolean, default=True, nullable=False)
     fechaDefuncion = Column(Date, nullable=True)
 
     idFamilia = Column(Integer, ForeignKey('Familia.id'))
@@ -32,4 +31,4 @@ class Persona(Base):
     usuario = relationship("Usuario", back_populates="persona", uselist=False)
 
     def __repr__(self):
-        return f"<Persona(id={self.id}, nombre={self.nombre}, activo={self.activo})>"
+        return f"<Persona(id={self.id}, nombre={self.nombre}>"

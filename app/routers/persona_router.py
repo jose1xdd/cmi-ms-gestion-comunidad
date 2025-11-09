@@ -47,15 +47,6 @@ async def update(
     return JSONResponse(content=response.model_dump(exclude_none=True), status_code=202)
 
 
-@persona_router.delete("/{persona_id}", status_code=status.HTTP_200_OK, response_model=EstadoResponse)
-async def delete(
-    persona_id: str,
-    manager: PersonaManager = Depends(get_persona_manager)
-):
-    response = manager.delete_persona(persona_id)
-    return JSONResponse(content=response.model_dump(exclude_none=True), status_code=200)
-
-
 @persona_router.get("", response_model=PaginatedPersonas)
 def get_personas(
     page: int = Query(1, ge=1),
