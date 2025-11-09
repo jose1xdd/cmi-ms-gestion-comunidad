@@ -64,23 +64,6 @@ class PersonaManager:
         self.logger.info(f"Persona actualizada correctamente: {id_persona}")
         return EstadoResponse(estado="Exitoso", message="Persona actualizada exitosamente")
 
-    def delete_persona(self, id_persona: str) -> EstadoResponse:
-        self.logger.info(
-            f"Iniciando eliminación lógica de persona con ID: {id_persona}")
-        persona: Persona = self.persona_repository.get(id_persona)
-        if not persona:
-            self.logger.error(f"Persona no encontrada con ID: {id_persona}")
-            raise AppException("Esa persona no está registrada")
-
-        persona.activo = False
-        familia: Familia = self.familia_repository.get(persona.idFamilia)
-
-        self.logger.info(
-            f"Actualizando familia {familia.id} al eliminar persona")
-        self.familia_repository.update(familia.id, familia)
-        self.persona_repository.update(id_persona, persona)
-        self.logger.info(f"Persona eliminada lógicamente: {id_persona}")
-        return EstadoResponse(estado="Exitoso", message="Persona eliminada exitosamente")
 
     def get_personas(self, page: int, page_size: int, filters: Dict[str, Any]) -> PaginatedPersonas:
         self.logger.info(

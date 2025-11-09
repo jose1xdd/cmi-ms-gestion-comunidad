@@ -13,7 +13,6 @@ class PersonaFilter(BaseModel):
     sexo: Optional[str] = None
     idFamilia: Optional[int] = None
     idParcialidad: Optional[int] = None
-    activo: Optional[bool] = None
     fechaDefuncion: Optional[str] = None  # formato 'YYYY-MM-DD' si se usa como filtro
 
     class Config:

@@ -17,7 +17,6 @@ class PersonaOut(BaseModel):
     escolaridad: EnumEscolaridad
     direccion: str
     telefono: str
-    activo: bool
     fechaDefuncion: Optional[date]
     idFamilia: Optional[int]
     parcialidad: Optional[ParcialidadOut]
