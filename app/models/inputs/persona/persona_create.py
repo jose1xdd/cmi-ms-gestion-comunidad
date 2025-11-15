@@ -19,7 +19,7 @@ class PersonaCreate(BaseModel):
     escolaridad: EnumEscolaridad
     direccion: str = Field(max_length=200)
     telefono: str = Field(max_length=20)
-    idFamilia: int = Field(default=None, description="ID de la familia a la que pertenece")
+    idFamilia: Optional[int] = Field(default=None, description="ID de la familia a la que pertenece")
     idParcialidad: int = Field(default=None, description="ID de la parcialidad")
     fechaDefuncion: Optional[date] = Field(default=None, description="Fecha de defunción si la persona ha fallecido")
 
