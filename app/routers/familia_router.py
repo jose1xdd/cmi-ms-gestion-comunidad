@@ -9,6 +9,7 @@ from app.models.outputs.familia.familia_output import FamiliaDataLeader, Familia
 from app.models.outputs.paginated_response import PaginatedDataLeader, PaginatedFamilias, PaginatedPersonasFamilia
 from app.models.outputs.persona.persona_output import EstadisticaGeneralOut
 from app.models.outputs.response_estado import EstadoResponse
+from app.persistence.model.enum import EnumEstadoFamilia
 from app.services.familia_manager import FamiliaManager
 
 familia_router = APIRouter(prefix="/familias", tags=["Familia"])
@@ -81,13 +82,21 @@ def search_familia(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, le=100),
     query: Optional[str] = Query(None),
+    parcialidad_id: Optional[int] = Query(None),
+    rango_miembros: Optional[str] = Query(None, pattern="^(1-3|4-6|7\+)$"),
+    estado: Optional[EnumEstadoFamilia] = Query(None),
     manager: FamiliaManager = Depends(get_familia_manager)
 ):
-    """
-    Busca familias por coincidencia parcial en los datos del representante (líder).
-    """
-    result = manager.search_familia_by_lider(query, page, page_size)
+    result = manager.search_familia_by_lider(
+        query=query,
+        page=page,
+        page_size=page_size,
+        parcialidad_id=parcialidad_id,
+        rango_miembros=rango_miembros,
+        estado=estado
+    )
     return result
+
 
 
 @familia_router.get(
