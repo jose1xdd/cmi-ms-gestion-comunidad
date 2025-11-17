@@ -183,22 +183,38 @@ class FamiliaManager:
                 errores=[ErrorPersonaOut(fila=0, id=None, mensaje=str(e))],
             )
 
-    def search_familia_by_lider(self, query: str, page: int, page_size: int) -> list[FamiliaOut]:
-        """
-        Busca familias por coincidencia parcial en los datos del representante (documento, nombre o apellido).
-        """
+    def search_familia_by_lider(
+        self,
+        query: str,
+        page: int,
+        page_size: int,
+        parcialidad_id: int | None = None,
+        rango_miembros: str | None = None,
+        estado: EnumEstadoFamilia | None = None
+    ):
+
         self.logger.info(
-            f"[FamiliaManager] 🔍 Buscando familia por datos del representante con query='{query}'")
+            f"[FamiliaManager] 🔍 Buscando familias con query='{query}', "
+            f"parcialidad_id={parcialidad_id}, rango_miembros={rango_miembros}, estado={estado}"
+        )
 
         familias = self.familia_repository.search_by_representante(
-            page, page_size, query)
+            page=page,
+            page_size=page_size,
+            query=query,
+            parcialidad_id=parcialidad_id,
+            rango_miembros=rango_miembros,
+            estado=estado
+        )
 
         if not familias:
             self.logger.warning(
-                f"[FamiliaManager] ⚠️ No se encontraron familias para query='{query}'")
+                "[FamiliaManager] ⚠️ No se encontraron familias con los filtros aplicados"
+            )
         else:
             self.logger.info(
-                f"[FamiliaManager] ✅ {len(familias)} familia(s) encontradas para query='{query}'")
+                f"[FamiliaManager] ✅ {len(familias)} familia(s) encontradas"
+            )
 
         return familias
 
@@ -270,11 +286,12 @@ class FamiliaManager:
 
         self.logger.debug(
             "[FamiliaManager] Validación de familia completada correctamente")
-    
+
     def get_estadisticas_generales(self) -> EstadisticaGeneralOut:
         """
         Obtiene las estadísticas generales del sistema.
         """
-        self.logger.info("[FamiliaManager] Consultando estadísticas generales del sistema")
+        self.logger.info(
+            "[FamiliaManager] Consultando estadísticas generales del sistema")
         data = self.familia_repository.get_estadisticas_generales()
         return EstadisticaGeneralOut(**data)

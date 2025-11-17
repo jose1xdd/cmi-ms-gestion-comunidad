@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, aliased, joinedload
 from app.models.inputs.familia.familia_create import FamiliaCreate
 from app.models.outputs.familia.familia_output import FamiliaDataLeader, FamiliaResumenOut
 from app.models.outputs.persona.persona_output import PersonaFamiliaOut
+from app.persistence.model.enum import EnumEstadoFamilia
 from app.persistence.model.familia import Familia
 from app.persistence.model.parcialidad import Parcialidad
 from app.persistence.model.persona import Persona
@@ -24,34 +25,71 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
             )
         return len(familias)
 
-    def search_by_representante(self, page: int, page_size: int, query: str):
-        """
-        Busca familias cuyo representante coincida parcialmente por documento, nombre o apellido.
-        Si el query está vacío, retorna todas las familias.
-        """
+    def search_by_representante(
+        self,
+        page: int,
+        page_size: int,
+        query: str,
+        parcialidad_id: int | None = None,
+        rango_miembros: str | None = None,
+        estado: EnumEstadoFamilia | None = None):
+
         query = query.strip() if query else ""
 
+        # Base query con joins
         base_query = (
             self.db.query(Familia)
-            .join(Persona, Familia.representante_id == Persona.id)
+            .outerjoin(Persona, Familia.representante_id == Persona.id)
             .options(joinedload(Familia.representante), joinedload(Familia.personas))
-            .order_by(Persona.apellido, Persona.nombre)
         )
 
-        # Si no hay query, no aplicar filtros
-        if not query:
-            return self.paginate(page, page_size, base_query)
-
-        like_query = f"%{query}%"
-        filtered_query = base_query.filter(
-            or_(
-                Persona.id.like(like_query),
-                func.lower(Persona.nombre).like(func.lower(like_query)),
-                func.lower(Persona.apellido).like(func.lower(like_query)),
+        # --- FILTRO POR QUERY (documento, nombre, apellido) ---
+        if query:
+            like_query = f"%{query}%"
+            base_query = base_query.filter(
+                or_(
+                    Persona.id.like(like_query),
+                    func.lower(Persona.nombre).like(func.lower(like_query)),
+                    func.lower(Persona.apellido).like(func.lower(like_query)),
+                )
             )
-        )
 
-        return self.paginate(page, page_size, filtered_query)
+        # --- FILTRO POR PARCIALIDAD DEL REPRESENTANTE ---
+        if parcialidad_id is not None:
+            base_query = base_query.filter(
+                Persona.idParcialidad == parcialidad_id)
+
+        # --- FILTRO POR ESTADO DE LA FAMILIA ---
+        if estado is not None:
+            base_query = base_query.filter(Familia.estado == estado)
+
+        # --- FILTRO POR CANTIDAD DE MIEMBROS ---
+        if rango_miembros:
+            # Subquery para contar miembros por familia
+            subq = (
+                self.db.query(
+                    Persona.idFamilia.label("fam_id"),
+                    func.count(Persona.id).label("num_miembros"),
+                )
+                .group_by(Persona.idFamilia)
+                .subquery()
+            )
+
+            base_query = base_query.join(
+                subq, subq.c.fam_id == Familia.id, isouter=True
+            )
+
+            if rango_miembros == "1-3":
+                base_query = base_query.filter(
+                    subq.c.num_miembros.between(1, 3))
+            elif rango_miembros == "4-6":
+                base_query = base_query.filter(
+                    subq.c.num_miembros.between(4, 6))
+            elif rango_miembros == "7+":
+                base_query = base_query.filter(subq.c.num_miembros >= 7)
+
+        # Retornar paginado
+        return self.paginate(page, page_size, base_query)
 
     def get_familias_dashboard(self, page: int, page_size: int):
         """

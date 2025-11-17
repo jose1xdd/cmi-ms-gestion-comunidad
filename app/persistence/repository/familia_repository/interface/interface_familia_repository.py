@@ -3,6 +3,7 @@ from typing import List, Optional
 from app.models.inputs.familia.familia_create import FamiliaCreate
 from app.models.outputs.familia.familia_output import FamiliaResumenOut
 from app.models.outputs.paginated_response import PaginatedFamilias
+from app.persistence.model.enum import EnumEstadoFamilia
 from app.persistence.model.familia import Familia
 from app.persistence.repository.base_repository.interface.ibase_repository import IBaseRepository
 
@@ -30,4 +31,15 @@ class IFamiliaRepository(IBaseRepository[Familia, int], ABC):
 
     @abstractmethod
     def get_estadisticas_generales(self) -> dict:
+        pass
+
+    @abstractmethod
+    def search_by_representante(
+        self,
+        page: int,
+        page_size: int,
+        query: str,
+        parcialidad_id: int | None = None,
+        rango_miembros: str | None = None,
+        estado: EnumEstadoFamilia | None = None):
         pass
