@@ -38,3 +38,15 @@ class ParcialidadRepository(BaseRepository, IParcialiadRepository):
             .order_by(func.locate(name, Parcialidad.nombre), func.length(Parcialidad.nombre))
             .first()
         )
+    def find_by_names(self, names: List[str]) -> List[Parcialidad]:
+        names = list(names) if names is not None else []
+
+        if len(names) == 0:
+            return []
+
+        return (
+            self.db.query(Parcialidad)
+            .filter(Parcialidad.nombre.in_(names))
+            .all()
+        )
+

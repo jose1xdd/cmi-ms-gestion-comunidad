@@ -8,7 +8,7 @@ class Familia(Base):
     __tablename__ = 'Familia'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    representante_id = Column(
+    representanteId = Column(
         String(36), ForeignKey('Persona.id'), nullable=True)
     estado = Column(Enum(EnumEstadoFamilia),
                     default=EnumEstadoFamilia.ACTIVA, nullable=False)
@@ -21,16 +21,16 @@ class Familia(Base):
 
     representante = relationship(
         "Persona",
-        foreign_keys=[representante_id],
+        foreign_keys=[representanteId],
         uselist=False
     )
 
     def __repr__(self):
-        return f"<Familia(id={self.id}, estado={self.estado}, representante_id={self.representante_id})>"
+        return f"<Familia(id={self.id}, estado={self.estado}, representanteId={self.representanteId})>"
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "representante_id": self.representante_id,
+            "representanteId": self.representanteId,
             "estado": self.estado.value if self.estado else None
         }

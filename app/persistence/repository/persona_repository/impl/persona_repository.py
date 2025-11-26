@@ -31,3 +31,15 @@ class PersonaRepository(BaseRepository, IPersonaRepository):
         for persona in personas:
             self.create(persona)
         return len(personas)
+
+    def bulk_insert_fast(self, lista_diccionarios):
+        # Crear nueva sesión aislada para el thread
+
+        try:
+            self.db.bulk_insert_mappings(Persona, lista_diccionarios)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        finally:
+            self.db.close()

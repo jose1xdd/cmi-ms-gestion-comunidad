@@ -4,7 +4,7 @@ from enum import Enum
 class EnumDocumento(Enum):
     CC = "CC"
     TI = "TI"
-    CE = "CE"
+    RC = "RC"
 
 
 class EnumRol(Enum):

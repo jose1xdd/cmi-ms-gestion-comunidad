@@ -21,25 +21,26 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
     def bulk_insert(self, familias: List[FamiliaCreate]) -> int:
         for familia in familias:
             self.create(
-                Familia(integrantes=0, id=familia.idFamilia)
+                Familia(id=familia.idFamilia,
+                        representanteId=familia.representanteId)
             )
         return len(familias)
 
     def search_by_representante(
-        self,
-        page: int,
-        page_size: int,
-        query: str,
-        parcialidad_id: int | None = None,
-        rango_miembros: str | None = None,
-        estado: EnumEstadoFamilia | None = None):
+            self,
+            page: int,
+            page_size: int,
+            query: str,
+            parcialidad_id: int | None = None,
+            rango_miembros: str | None = None,
+            estado: EnumEstadoFamilia | None = None):
 
         query = query.strip() if query else ""
 
         # Base query con joins
         base_query = (
             self.db.query(Familia)
-            .outerjoin(Persona, Familia.representante_id == Persona.id)
+            .outerjoin(Persona, Familia.representanteId == Persona.id)
             .options(joinedload(Familia.representante), joinedload(Familia.personas))
         )
 
@@ -110,7 +111,7 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
                 func.count(persona_miembro.id).label("miembros"),
                 Familia.estado.label("estado"),
             )
-            .join(persona_lider, persona_lider.id == Familia.representante_id)
+            .join(persona_lider, persona_lider.id == Familia.representanteId)
             .outerjoin(persona_miembro, persona_miembro.idFamilia == Familia.id)
             .outerjoin(Parcialidad, Parcialidad.id == persona_lider.idParcialidad)
             .group_by(
@@ -222,7 +223,7 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
                 func.sum(func.if_(persona_miembro.fechaDefuncion.isnot(
                     None), 1, 0)).label("defunciones"),
             )
-            .join(persona_lider, persona_lider.id == Familia.representante_id)
+            .join(persona_lider, persona_lider.id == Familia.representanteId)
             .outerjoin(persona_miembro, persona_miembro.idFamilia == Familia.id)
             .outerjoin(Parcialidad, Parcialidad.id == persona_lider.idParcialidad)
             .filter(Familia.id == id_familia)
