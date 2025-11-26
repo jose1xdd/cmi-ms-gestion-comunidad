@@ -10,13 +10,11 @@ class PersonaCreateExcel(BaseModel):
     nombre: str = Field(max_length=50)
     apellido: str = Field(max_length=50)
     fechaNacimiento: date
-    parentesco: EnumParentesco
     sexo: EnumSexo
     profesion: Optional[str] = Field(default=None, max_length=100)
     escolaridad: EnumEscolaridad
     direccion: str = Field(max_length=200)
     telefono: str = Field(max_length=20)
-    familia: int 
     parcialidad: str
 
     class Config:

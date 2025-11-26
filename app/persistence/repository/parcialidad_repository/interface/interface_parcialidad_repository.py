@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, List
 from app.models.outputs.paginated_response import PaginatedParcialidad
 from app.persistence.model.parcialidad import Parcialidad
 from app.persistence.repository.base_repository.interface.ibase_repository import IBaseRepository
@@ -21,4 +21,8 @@ class IParcialiadRepository(IBaseRepository[Parcialidad, int], ABC):
 
     @abstractmethod
     def find_by_name(self, name: str) -> Parcialidad:
+        pass
+    
+    @abstractmethod
+    def find_by_names(self, names: List[str]) -> List[Parcialidad]:
         pass

@@ -19,3 +19,7 @@ class IPersonaRepository(IBaseRepository[Persona, str], ABC):
     @abstractmethod
     def bulk_insert(self, personas: List[PersonaCreate]) -> int:
         pass
+
+    @abstractmethod
+    def bulk_insert_fast(self, lista_diccionarios):
+        pass

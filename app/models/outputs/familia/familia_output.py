@@ -5,7 +5,7 @@ from app.models.outputs.persona.persona_output import PersonaOut  # si quieres i
 
 class FamiliaOut(BaseModel):
     id: int
-    representante_id: Optional[str]
+    representanteId: Optional[str]
     estado: EnumEstadoFamilia
     representante: Optional[PersonaOut] = None
 

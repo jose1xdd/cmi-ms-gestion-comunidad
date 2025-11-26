@@ -33,10 +33,10 @@ class PersonaManager:
         parcialidad_repository: IParcialiadRepository,
         logger: logging.Logger,
     ):
-        self.usuario_repository:IUsuarioRepository = usuario_repository
-        self.persona_repository:IPersonaRepository = persona_repository
-        self.familia_repository:IFamiliaRepository = familia_repository
-        self.parcialidad_repository:IParcialiadRepository = parcialidad_repository
+        self.usuario_repository: IUsuarioRepository = usuario_repository
+        self.persona_repository: IPersonaRepository = persona_repository
+        self.familia_repository: IFamiliaRepository = familia_repository
+        self.parcialidad_repository: IParcialiadRepository = parcialidad_repository
         self.logger = logger
 
     def create_persona(self, data: PersonaCreate) -> EstadoResponse:
@@ -63,7 +63,6 @@ class PersonaManager:
         self.persona_repository.update(id_persona, data)
         self.logger.info(f"Persona actualizada correctamente: {id_persona}")
         return EstadoResponse(estado="Exitoso", message="Persona actualizada exitosamente")
-
 
     def get_personas(self, page: int, page_size: int, filters: Dict[str, Any]) -> PaginatedPersonas:
         self.logger.info(
@@ -169,7 +168,6 @@ class PersonaManager:
             # ✅ Normalizar datos antes de validación
             df["id"] = df["id"].astype(str)              # siempre string
             df["telefono"] = df["telefono"].astype(str)  # siempre string
-            df["familia"] = df["familia"].astype(int)  # siempre string
             df = df.replace({np.nan: None})              # NaN → None
 
             personas: List[PersonaCreate] = []
@@ -183,7 +181,6 @@ class PersonaManager:
                     persona_create = PersonaCreate(**persona.model_dump())
                     if parcialidad is not None:
                         persona_create.idParcialidad = parcialidad.id
-                    persona_create.idFamilia = persona.familia
                     self._validar_persona(persona_create)
                     personas.append(persona_create)
                 except Exception as e:
@@ -242,12 +239,15 @@ class PersonaManager:
             estado="Exitoso",
             message=f"Fecha de defunción registrada para la persona {data.id}"
         )
+
     def get_familia_resumen(self, id_familia: int) -> FamiliaResumenOut:
         """
         Retorna la información resumen de una familia.
         """
-        self.logger.info(f"[FamiliaManager] Consultando resumen de familia {id_familia}")
+        self.logger.info(
+            f"[FamiliaManager] Consultando resumen de familia {id_familia}")
         return self.familia_repository.get_familia_resumen(id_familia)
+
     def _validar_persona(self, data: PersonaCreate) -> Familia | None:
         """
         Valida reglas de negocio antes de crear una Persona.

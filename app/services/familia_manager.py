@@ -41,24 +41,24 @@ class FamiliaManager:
         try:
             familia = Familia(
                 id=data.idFamilia,
-                representante_id=data.representante_id,
+                representanteId=data.representanteId,
                 estado=data.estado or EnumEstadoFamilia.ACTIVA
             )
 
             created = self.familia_repository.create(familia)
 
-            if data.representante_id:
+            if data.representanteId:
                 self.logger.info(
-                    f"[FamiliaManager] Asignando representante {data.representante_id} a la familia {created.id}")
+                    f"[FamiliaManager] Asignando representante {data.representanteId} a la familia {created.id}")
                 persona = PersonaUpdate(idFamilia=created.id)
                 persona = self.persona_repository.update(
-                    data.representante_id, persona)
+                    data.representanteId, persona)
                 self.logger.info(
                     f"[FamiliaManager] ✅ Representante {persona.id} asignado correctamente a la familia {created.id}"
                 )
             self.logger.info(
                 f"[FamiliaManager] ✅ Familia creada exitosamente | ID: {created.id}, "
-                f"Estado: {created.estado}, Representante: {created.representante_id}"
+                f"Estado: {created.estado}, Representante: {created.representanteId}"
             )
 
             return EstadoResponse(
@@ -109,29 +109,36 @@ class FamiliaManager:
 
         self.logger.info(
             f"[FamiliaManager] ✅ Familia encontrada | ID: {familia.id}, "
-            f"Estado: {familia.estado}, Representante: {familia.representante_id}"
+            f"Estado: {familia.estado}, Representante: {familia.representanteId}"
         )
         return familia
 
     async def upload_excel(self, file: UploadFile) -> CargaMasivaResponse:
         self.logger.info(
-            f"[FamiliaManager] Iniciando carga masiva de familias desde archivo: {file.filename}")
+            f"[FamiliaManager] Iniciando carga masiva de familias desde archivo: {file.filename}"
+        )
 
         try:
             content = await file.read()
             df = pd.read_excel(io.BytesIO(content))
             self.logger.info(
-                f"[FamiliaManager] Archivo leído correctamente | Filas detectadas: {len(df)}")
+                f"[FamiliaManager] Archivo leído correctamente | Filas detectadas: {len(df)}"
+            )
 
-            # Validar columnas requeridas
             missing = [col for col in COLUMNS_FAMILIA if col not in df.columns]
             if missing:
                 self.logger.error(
-                    f"[FamiliaManager] ❌ Faltan columnas requeridas en Excel: {missing}")
+                    f"[FamiliaManager] ❌ Faltan columnas requeridas en Excel: {missing}"
+                )
                 return CargaMasivaResponse(
                     status="error",
-                    errores=[ErrorPersonaOut(
-                        fila=0, id=None, mensaje=f"Faltan columnas: {missing}")]
+                    errores=[
+                        ErrorPersonaOut(
+                            fila=0,
+                            id=None,
+                            mensaje=f"Faltan columnas: {missing}"
+                        )
+                    ]
                 )
 
             df = df.replace({np.nan: None})
@@ -140,9 +147,23 @@ class FamiliaManager:
 
             for i, row in df.iterrows():
                 try:
-                    familia = FamiliaCreate(**row.to_dict())
+                    familia_dict = row.to_dict()
+                    representante_id = familia_dict.get("cedulaRepresentante")
+
+                    if representante_id is not None:
+                        persona = self.persona_repository.get(
+                            representante_id)
+                        if not persona:
+                            raise AppException(
+                                f"El representanteId '{representante_id}' no existe en Persona"
+                            )
+                        familia_dict["representanteId"] = str(representante_id)
+
+                    familia = FamiliaCreate(
+                        **familia_dict)
                     self._validar_familia(familia)
                     familias.append(familia)
+
                 except Exception as e:
                     self.logger.warning(
                         f"[FamiliaManager] Error en fila {i + 2}: {e}"
@@ -159,14 +180,17 @@ class FamiliaManager:
             insertados = 0
             if familias:
                 self.logger.info(
-                    f"[FamiliaManager] Insertando {len(familias)} familias válidas en base de datos...")
+                    f"[FamiliaManager] Insertando {len(familias)} familias válidas en base de datos..."
+                )
                 insertados = self.familia_repository.bulk_insert(familias)
                 self.logger.info(
-                    f"[FamiliaManager] ✅ Inserción masiva completada. Familias insertadas: {insertados}")
+                    f"[FamiliaManager] ✅ Inserción masiva completada. Familias insertadas: {insertados}"
+                )
 
             total = len(familias) + len(errores)
             self.logger.info(
-                f"[FamiliaManager] Carga masiva finalizada | Total procesados: {total}, Errores: {len(errores)}")
+                f"[FamiliaManager] Carga masiva finalizada | Total procesados: {total}, Errores: {len(errores)}"
+            )
 
             return CargaMasivaResponse(
                 status="ok",
@@ -177,7 +201,8 @@ class FamiliaManager:
 
         except Exception as e:
             self.logger.exception(
-                f"[FamiliaManager] ❌ Error procesando archivo Excel: {e}")
+                f"[FamiliaManager] ❌ Error procesando archivo Excel: {e}"
+            )
             return CargaMasivaResponse(
                 status="error",
                 errores=[ErrorPersonaOut(fila=0, id=None, mensaje=str(e))],
@@ -267,22 +292,22 @@ class FamiliaManager:
                 f"[FamiliaManager] Estado inválido recibido: {data.estado}")
             raise AppException(f"Estado de familia inválido: {data.estado}")
 
-        if data.representante_id:
+        if data.representanteId is not None:
             self.logger.debug(
-                f"[FamiliaManager] Verificando existencia del representante con ID {data.representante_id}")
+                f"[FamiliaManager] Verificando existencia del representante con ID {data.representanteId}")
 
             representante_exist = self.persona_repository.get(
-                data.representante_id)
+                data.representanteId)
             if not representante_exist:
                 self.logger.error(
-                    f"[FamiliaManager] ❌ No existe la persona con ID {data.representante_id} para asignar como líder")
+                    f"[FamiliaManager] ❌ No existe la persona con ID {data.representanteId} para asignar como líder")
                 raise AppException(
-                    f"No existe la persona con ID {data.representante_id} para asignar como líder")
+                    f"No existe la persona con ID {data.representanteId} para asignar como líder")
             if representante_exist.idFamilia != None:
                 raise AppException(
-                    f"La persona con ID {data.representante_id} ya forma parte de una familia no se puede asignar como líder")
+                    f"La persona con ID {data.representanteId} ya forma parte de una familia no se puede asignar como líder")
             self.logger.info(
-                f"[FamiliaManager] ✅ Representante válido encontrado: {data.representante_id}")
+                f"[FamiliaManager] ✅ Representante válido encontrado: {data.representanteId}")
 
         self.logger.debug(
             "[FamiliaManager] Validación de familia completada correctamente")
