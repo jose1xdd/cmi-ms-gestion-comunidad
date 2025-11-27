@@ -11,7 +11,7 @@ class PersonaOut(BaseModel):
     nombre: str
     apellido: str
     fechaNacimiento: date
-    parentesco: EnumParentesco
+    parentesco: Optional[EnumParentesco]
     sexo: EnumSexo
     profesion: Optional[str]
     escolaridad: EnumEscolaridad
@@ -24,6 +24,7 @@ class PersonaOut(BaseModel):
     class Config:
         from_attributes = True
         exclude_none = True
+
 
 class PersonaFamiliaOut(BaseModel):
     id: str
@@ -38,6 +39,7 @@ class PersonaFamiliaOut(BaseModel):
     class Config:
         from_attributes = True
         exclude_none = True
+
 
 class EstadisticaGeneralOut(BaseModel):
     total_familias: int
