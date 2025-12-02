@@ -6,6 +6,7 @@ import io
 
 from fastapi import UploadFile
 from app.models.inputs.familia.familia_create import FamiliaCreate
+from app.models.inputs.familia.familia_update import FamiliaUpdate
 from app.models.inputs.persona.persona_carga_masiva import CargaMasivaResponse, ErrorPersonaOut
 from app.models.inputs.persona.persona_update import PersonaUpdate
 from app.models.outputs.familia.familia_output import FamiliaOut, FamiliaResumenOut
@@ -96,6 +97,27 @@ class FamiliaManager:
         self.logger.info(
             f"[FamiliaManager] ✅ Consulta completada | Total familias en página: {result.__len__()}")
         return result
+
+    def update_familias(self, request: FamiliaUpdate):
+        self.logger.info("[FamiliaManager] 🔄 Iniciando actualización de familia")
+        familia = self.familia_repository.get(request.familiaId)
+        if familia is None:
+            self.logger.warning(
+                f"[FamiliaManager] ⚠️ Familia con ID {request.familiaId} no encontrada")
+            raise AppException("Familia no encontrada", 404)
+        if request.representanteId is not None:
+            persona = self.persona_repository.get(request.representanteId)
+            if persona is None:
+                self.logger.warning(
+                    f"[FamiliaManager] ⚠️ Persona con ID {request.representanteId} no encontrada")
+                raise AppException("Persona no encontrada", 404)
+        familia.representanteId = request.representanteId
+        self.familia_repository.update(familia.id, familia)
+        self.logger.info(f"[FamiliaManager] 🎉 Familia {familia.id} actualizada exitosamente")
+        return EstadoResponse(
+            estado="success",
+            message="Familia actualizada exitosamente"
+        )
 
     def get_familia(self, familia_id: int) -> FamiliaOut:
         self.logger.info(

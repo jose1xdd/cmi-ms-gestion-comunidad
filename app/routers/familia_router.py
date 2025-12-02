@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from app.ioc.container import get_familia_manager
 from app.models.inputs.familia.familia_create import FamiliaCreate
+from app.models.inputs.familia.familia_update import FamiliaUpdate
 from app.models.inputs.persona.persona_carga_masiva import CargaMasivaResponse
 from app.models.outputs.familia.familia_output import FamiliaDataLeader, FamiliaOut, FamiliaResumenOut
 from app.models.outputs.paginated_response import PaginatedDataLeader, PaginatedFamilias, PaginatedPersonasFamilia
@@ -29,6 +30,20 @@ async def create(
     """
     response = manager.create(data)
     return JSONResponse(content=response.model_dump(exclude_none=True), status_code=201)
+
+
+@familia_router.put(
+    "/update",
+    status_code=status.HTTP_200_OK,
+    response_model=EstadoResponse,
+    summary="Actualiza el representante de una familia"
+)
+async def update_familia(
+    data: FamiliaUpdate,
+    manager: FamiliaManager = Depends(get_familia_manager)
+):
+    response = manager.update_familias(data)
+    return JSONResponse(content=response.model_dump(exclude_none=True), status_code=200)
 
 
 @familia_router.post(
@@ -96,7 +111,6 @@ def search_familia(
         estado=estado
     )
     return result
-
 
 
 @familia_router.get(
