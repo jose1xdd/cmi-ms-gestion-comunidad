@@ -135,6 +135,11 @@ class PersonaManager:
                 message=f"La persona {persona_id} no pertenece a ninguna familia"
             )
 
+        familia = self.familia_repository.get(persona.idFamilia)
+        if (familia.representanteId == persona_id):
+            familia.representanteId = None
+            self.familia_repository.update(familia.id, familia)
+    
         persona.idFamilia = None
         self.persona_repository.update(persona_id, persona)
 
