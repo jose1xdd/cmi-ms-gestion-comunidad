@@ -280,7 +280,7 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
 
         return result
 
-    def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int):
+    def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int, vivos: bool):
         """
         Devuelve los miembros de una familia con información detallada:
         nombre, parentesco, parcialidad, cédula, edad y estado (ACTIVO/FALLECIDO).
@@ -324,6 +324,8 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
                     miembro.id.like(f"%{query}%")
                 )
             )
+        if vivos is True:
+             q = q.filter(miembro.fechaDefuncion.is_(None))
 
         # 🔹 Paginación
         result = self.paginate(page, page_size, q)

@@ -31,7 +31,7 @@ class IFamiliaRepository(IBaseRepository[Familia, int], ABC):
         pass
 
     @abstractmethod
-    def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int):
+    def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int, vivos: bool):
         pass
 
     @abstractmethod

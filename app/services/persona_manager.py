@@ -104,7 +104,11 @@ class PersonaManager:
             miembro_anterior = self.miembro_repository.get_familia_actual(
                 persona_id)
             if miembro_anterior:
-                self.miembro_repository.delete(miembro_anterior.id)
+                if miembro_anterior.familiaId == data.familia_id:
+                    personas_asignadas.append(persona_id)
+                    continue
+                else:
+                    self.miembro_repository.delete(miembro_anterior.id)
             self.miembro_repository.create(MiembroFamilia(
                 personaId=persona_id, familiaId=data.familia_id))
 

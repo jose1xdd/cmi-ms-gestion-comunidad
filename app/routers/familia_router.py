@@ -142,12 +142,13 @@ def get_miembros_familia(
     page_size: int = Query(10, le=100),
     query: Optional[str] = Query(
         None, description="Buscar por nombre, apellido o cédula"),
+    vivos: bool = Query(False, description="Filtrar solo miembros vivos"),
     manager: FamiliaManager = Depends(get_familia_manager)
 ):
     """
     Retorna los miembros de la familia especificada, con búsqueda parcial.
     """
-    return manager.get_miembros_familia(id_familia, query, page, page_size)
+    return manager.get_miembros_familia(id_familia, query, page, page_size,vivos)
 
 
 @familia_router.get(

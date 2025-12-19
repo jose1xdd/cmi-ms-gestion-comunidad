@@ -97,8 +97,9 @@ class FamiliaManager:
     def get_familias(self, page: int, page_size: int) -> PaginatedFamilias:
         self.logger.info(
             f"[FamiliaManager] Consultando familias | Página: {page}, Tamaño: {page_size}")
-        result = self.familia_repository.get_familias_con_lider(page, page_size)
-        
+        result = self.familia_repository.get_familias_con_lider(
+            page, page_size)
+
         self.logger.info(
             f"[FamiliaManager] ✅ Consulta completada | Total familias en página: {result['items'].__len__()}")
         return result
@@ -346,11 +347,11 @@ class FamiliaManager:
             f"[FamiliaManager] Se obtuvieron {len(result)} familias para el dashboard")
         return result
 
-    def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int):
+    def get_miembros_familia(self, id_familia: int, query: Optional[str], page: int, page_size: int, vivos: bool = False):
         self.logger.info(
-            f"[FamiliaManager] Consultando miembros de la familia {id_familia} (query='{query}')")
+            f"[FamiliaManager] Consultando miembros de la familia {id_familia} (query='{query}', vivos={vivos})")
         result = self.familia_repository.get_miembros_familia(
-            id_familia, query, page, page_size)
+            id_familia, query, page, page_size, vivos)
         self.logger.info(
             f"[FamiliaManager] Miembros encontrados: {result['total_items']}")
         return result
