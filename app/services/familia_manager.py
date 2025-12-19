@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 import io
@@ -13,10 +13,13 @@ from app.models.outputs.familia.familia_output import FamiliaOut, FamiliaResumen
 from app.models.outputs.paginated_response import PaginatedFamilias
 from app.models.outputs.persona.persona_output import EstadisticaGeneralOut
 from app.models.outputs.response_estado import EstadoResponse
+from app.persistence.model import miembro_familia
 from app.persistence.model.familia import Familia
 from app.persistence.model.enum import EnumEstadoFamilia
+from app.persistence.model.miembro_familia import MiembroFamilia
 from app.persistence.model.persona import Persona
 from app.persistence.repository.familia_repository.interface.interface_familia_repository import IFamiliaRepository
+from app.persistence.repository.miembro_familia_repository.interface.inteface_miembro_familia import IMiembroRepository
 from app.persistence.repository.persona_repository.interface.interface_persona_repository import IPersonaRepository
 from app.utils.constans import COLUMNS_FAMILIA
 from app.utils.exceptions_handlers.models.error_response import AppException
@@ -25,9 +28,11 @@ from app.utils.exceptions_handlers.models.error_response import AppException
 class FamiliaManager:
     def __init__(self, familia_repository: IFamiliaRepository,
                  persona_repository: IPersonaRepository,
+                 miembro_repository: IMiembroRepository,
                  logger: logging.Logger):
         self.familia_repository: IFamiliaRepository = familia_repository
         self.persona_repository: IPersonaRepository = persona_repository
+        self.miembro_repository = miembro_repository
         self.logger = logger
 
     def create(self, data: FamiliaCreate) -> EstadoResponse:
@@ -42,7 +47,6 @@ class FamiliaManager:
         try:
             familia = Familia(
                 id=data.idFamilia,
-                representanteId=data.representanteId,
                 estado=data.estado or EnumEstadoFamilia.ACTIVA
             )
 
@@ -51,21 +55,21 @@ class FamiliaManager:
             if data.representanteId:
                 self.logger.info(
                     f"[FamiliaManager] Asignando representante {data.representanteId} a la familia {created.id}")
-                persona = PersonaUpdate(idFamilia=created.id)
-                persona = self.persona_repository.update(
-                    data.representanteId, persona)
+                self.miembro_repository.create(MiembroFamilia(
+                    personaId=data.representanteId, familiaId=familia.id, esRepresentante=True))
                 self.logger.info(
-                    f"[FamiliaManager] ✅ Representante {persona.id} asignado correctamente a la familia {created.id}"
+                    f"[FamiliaManager] ✅ Representante {data.representanteId} asignado correctamente a la familia {created.id}"
                 )
             self.logger.info(
                 f"[FamiliaManager] ✅ Familia creada exitosamente | ID: {created.id}, "
-                f"Estado: {created.estado}, Representante: {created.representanteId}"
+                f"Estado: {created.estado}, Representante: {data.representanteId}"
             )
-
+            familia_data = created.to_dict()
+            familia_data["representanteId"] = data.representanteId
             return EstadoResponse(
                 estado="success",
                 message="Familia creada exitosamente",
-                data=created.to_dict()
+                data=familia_data
             )
         except Exception as e:
             self.logger.exception(
@@ -93,31 +97,76 @@ class FamiliaManager:
     def get_familias(self, page: int, page_size: int) -> PaginatedFamilias:
         self.logger.info(
             f"[FamiliaManager] Consultando familias | Página: {page}, Tamaño: {page_size}")
-        result = self.familia_repository.paginate(page, page_size)
+        result = self.familia_repository.get_familias_con_lider(page, page_size)
+        
         self.logger.info(
-            f"[FamiliaManager] ✅ Consulta completada | Total familias en página: {result.__len__()}")
+            f"[FamiliaManager] ✅ Consulta completada | Total familias en página: {result['items'].__len__()}")
         return result
 
     def update_familias(self, request: FamiliaUpdate):
-        self.logger.info("[FamiliaManager] 🔄 Iniciando actualización de familia")
+        self.logger.info(
+            "[FamiliaManager] 🔄 Iniciando actualización de familia")
+
         familia = self.familia_repository.get(request.familiaId)
         if familia is None:
             self.logger.warning(
-                f"[FamiliaManager] ⚠️ Familia con ID {request.familiaId} no encontrada")
+                f"[FamiliaManager] ⚠️ Familia con ID {request.familiaId} no encontrada"
+            )
             raise AppException("Familia no encontrada", 404)
-        if request.representanteId is not None:
-            persona = self.persona_repository.get(request.representanteId)
-            if persona is None:
-                self.logger.warning(
-                    f"[FamiliaManager] ⚠️ Persona con ID {request.representanteId} no encontrada")
-                raise AppException("Persona no encontrada", 404)
-        familia.representanteId = request.representanteId
-        self.familia_repository.update(familia.id, familia)
-        self.logger.info(f"[FamiliaManager] 🎉 Familia {familia.id} actualizada exitosamente")
+
+        # Manejo del líder (asignar o remover)
+        self._set_lider(
+            familia_id=request.familiaId,
+            representante_id=request.representanteId
+        )
+
+        self.logger.info(
+            f"[FamiliaManager] 🎉 Familia {familia.id} actualizada exitosamente"
+        )
+
         return EstadoResponse(
             estado="success",
             message="Familia actualizada exitosamente"
         )
+
+    def _set_lider(self, familia_id: int, representante_id: Optional[str]):
+        """
+        Asigna o remueve el líder de una familia.
+        """
+        # Obtener líder actual
+        lider_actual = self.miembro_repository.get_lider_familia(familia_id)
+
+        # Si no se envía representante, se remueve el líder actual
+        if representante_id is None:
+            if lider_actual:
+                lider_actual.esRepresentante = False
+                self.miembro_repository.update(lider_actual.id, lider_actual)
+            return
+
+        # Validar persona
+        persona = self.persona_repository.get(representante_id)
+        if persona is None:
+            self.logger.warning(
+                f"[FamiliaManager] ⚠️ Persona con ID {representante_id} no encontrada"
+            )
+            raise AppException("Persona no encontrada", 404)
+
+        # Validar que pertenezca a la familia
+        miembro = self.miembro_repository.get_familia_actual(representante_id)
+        if miembro is None or miembro.familiaId != familia_id:
+            self.logger.warning(
+                f"[FamiliaManager] ⚠️ Persona con ID {representante_id} no pertenece a la familia"
+            )
+            raise AppException("Persona no pertenece a la familia", 404)
+
+        # Desactivar líder anterior si existe y es distinto
+        if lider_actual and lider_actual.id != miembro.id:
+            lider_actual.esRepresentante = False
+            self.miembro_repository.update(lider_actual.id, lider_actual)
+
+        # Asignar nuevo líder
+        miembro.esRepresentante = True
+        self.miembro_repository.update(miembro.id, miembro)
 
     def get_familia(self, familia_id: int) -> FamiliaOut:
         self.logger.info(
@@ -164,25 +213,27 @@ class FamiliaManager:
                 )
 
             df = df.replace({np.nan: None})
+
             familias: List[FamiliaCreate] = []
             errores: List[ErrorPersonaOut] = []
+            representantes: Dict[int, str] = {}
 
             for i, row in df.iterrows():
                 try:
                     familia_dict = row.to_dict()
-                    representante_id = familia_dict.get("cedulaRepresentante")
+                    representante_id = familia_dict.pop(
+                        "cedulaRepresentante", None)
 
-                    if representante_id is not None:
-                        persona = self.persona_repository.get(
-                            representante_id)
+                    if representante_id:
+                        persona = self.persona_repository.get(representante_id)
                         if not persona:
                             raise AppException(
-                                f"El representanteId '{representante_id}' no existe en Persona"
+                                f"El representante '{representante_id}' no existe"
                             )
-                        familia_dict["representanteId"] = str(representante_id)
+                        representantes[familia_dict["idFamilia"]] = str(
+                            representante_id)
 
-                    familia = FamiliaCreate(
-                        **familia_dict)
+                    familia = FamiliaCreate(**familia_dict)
                     self._validar_familia(familia)
                     familias.append(familia)
 
@@ -202,16 +253,33 @@ class FamiliaManager:
             insertados = 0
             if familias:
                 self.logger.info(
-                    f"[FamiliaManager] Insertando {len(familias)} familias válidas en base de datos..."
+                    f"[FamiliaManager] Insertando {len(familias)} familias válidas..."
                 )
                 insertados = self.familia_repository.bulk_insert(familias)
-                self.logger.info(
-                    f"[FamiliaManager] ✅ Inserción masiva completada. Familias insertadas: {insertados}"
-                )
+
+                for familia_id, representante_id in representantes.items():
+                    miembro = self.miembro_repository.get_familia_actual(
+                        representante_id
+                    )
+
+                    if not miembro:
+                        self.miembro_repository.create(
+                            MiembroFamilia(
+                                personaId=representante_id,
+                                familiaId=familia_id,
+                                activo=True,
+                                esRepresentante=False
+                            )
+                        )
+
+                    self._set_lider(
+                        familia_id=familia_id,
+                        representante_id=representante_id
+                    )
 
             total = len(familias) + len(errores)
             self.logger.info(
-                f"[FamiliaManager] Carga masiva finalizada | Total procesados: {total}, Errores: {len(errores)}"
+                f"[FamiliaManager] Carga masiva finalizada | Total: {total}, Errores: {len(errores)}"
             )
 
             return CargaMasivaResponse(
@@ -325,7 +393,9 @@ class FamiliaManager:
                     f"[FamiliaManager] ❌ No existe la persona con ID {data.representanteId} para asignar como líder")
                 raise AppException(
                     f"No existe la persona con ID {data.representanteId} para asignar como líder")
-            if representante_exist.idFamilia != None:
+            miembro_familia = self.miembro_repository.get_familia_actual(
+                data.representanteId)
+            if miembro_familia is not None:
                 raise AppException(
                     f"La persona con ID {data.representanteId} ya forma parte de una familia no se puede asignar como líder")
             self.logger.info(

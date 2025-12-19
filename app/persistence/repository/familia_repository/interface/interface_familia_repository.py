@@ -9,6 +9,15 @@ from app.persistence.repository.base_repository.interface.ibase_repository impor
 
 
 class IFamiliaRepository(IBaseRepository[Familia, int], ABC):
+
+    @abstractmethod
+    def get_familias_con_lider(
+        self,
+        page: int,
+        page_size: int
+    ):
+        pass
+
     @abstractmethod
     def bulk_insert(self, familias: List[FamiliaCreate]) -> int:
         pass
@@ -35,11 +44,11 @@ class IFamiliaRepository(IBaseRepository[Familia, int], ABC):
 
     @abstractmethod
     def search_by_representante(
-        self,
-        page: int,
-        page_size: int,
-        query: str,
-        parcialidad_id: int | None = None,
-        rango_miembros: str | None = None,
-        estado: EnumEstadoFamilia | None = None):
+            self,
+            page: int,
+            page_size: int,
+            query: str,
+            parcialidad_id: int | None = None,
+            rango_miembros: str | None = None,
+            estado: EnumEstadoFamilia | None = None):
         pass

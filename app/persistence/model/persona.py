@@ -1,34 +1,42 @@
-from sqlalchemy import Boolean, Enum, Column, ForeignKey, String, Integer, Date
+from sqlalchemy import Column, Enum, String, Integer, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from app.config.database import Base
-from app.persistence.model.enum import EnumDocumento, EnumEscolaridad, EnumParentesco, EnumSexo
+from app.persistence.model.enum import (
+    EnumDocumento, EnumEscolaridad, EnumParentesco, EnumSexo
+)
+
 
 class Persona(Base):
     __tablename__ = 'Persona'
 
-    id = Column(String(36), primary_key=True)
+    id = Column(String(255), primary_key=True)
     tipoDocumento = Column(Enum(EnumDocumento))
-    nombre = Column(String(50))
-    apellido = Column(String(50))
+    nombre = Column(String(255))
+    apellido = Column(String(255))
     fechaNacimiento = Column(Date)
     parentesco = Column(Enum(EnumParentesco))
     sexo = Column(Enum(EnumSexo))
-    profesion = Column(String(100), nullable=True)
+    profesion = Column(String(255), nullable=True)
     escolaridad = Column(Enum(EnumEscolaridad))
-    direccion = Column(String(200))
-    telefono = Column(String(20))
+    direccion = Column(String(255))
+    telefono = Column(String(255))
     fechaDefuncion = Column(Date, nullable=True)
 
-    idFamilia = Column(Integer, ForeignKey('Familia.id'))
-    idParcialidad = Column(Integer, ForeignKey('Parcialidad.id'))
-
-    familia = relationship(
-        "Familia",
-        back_populates="personas",
-        foreign_keys=[idFamilia]
+    idParcialidad = Column(
+        Integer,
+        ForeignKey('Parcialidad.id'),
+        nullable=True
     )
+
+    # Relaciones
     parcialidad = relationship("Parcialidad", back_populates="personas")
     usuario = relationship("Usuario", back_populates="persona", uselist=False)
 
+    # Relación indirecta a Familia
+    familias = relationship(
+        "MiembroFamilia",
+        back_populates="persona"
+    )
+
     def __repr__(self):
-        return f"<Persona(id={self.id}, nombre={self.nombre}>"
+        return "<Persona>"

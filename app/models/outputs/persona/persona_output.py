@@ -18,7 +18,7 @@ class PersonaOut(BaseModel):
     direccion: str
     telefono: str
     fechaDefuncion: Optional[date]
-    idFamilia: Optional[int]
+    idFamilia: Optional[int] = None
     parcialidad: Optional[ParcialidadOut]
 
     class Config:

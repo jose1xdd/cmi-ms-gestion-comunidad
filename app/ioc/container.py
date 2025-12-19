@@ -5,6 +5,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.persistence.repository.familia_repository.interface.interface_familia_repository import IFamiliaRepository
+from app.persistence.repository.miembro_familia_repository.interface.inteface_miembro_familia import IMiembroRepository
 from app.persistence.repository.parcialidad_repository.interface.interface_parcialidad_repository import IParcialiadRepository
 from app.persistence.repository.persona_repository.interface.interface_persona_repository import IPersonaRepository
 from app.persistence.repository.repository_factory import RepositoryFactory
@@ -34,6 +35,7 @@ def get_persona_manager(
         persona_repository=factory.get_repository(IPersonaRepository),
         familia_repository=factory.get_repository(IFamiliaRepository),
         parcialidad_repository=factory.get_repository(IParcialiadRepository),
+        miembro_repository=factory.get_repository(IMiembroRepository)
     )
 
 
@@ -46,7 +48,8 @@ def get_familia_manager(
     return FamiliaManager(
         logger=logger,
         familia_repository=factory.get_repository(IFamiliaRepository),
-        persona_repository=factory.get_repository(IPersonaRepository)
+        persona_repository=factory.get_repository(IPersonaRepository),
+        miembro_repository=factory.get_repository(IMiembroRepository)
     )
 
 

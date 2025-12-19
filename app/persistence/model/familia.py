@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Enum, ForeignKey, TIMESTAMP, func
-from app.config.database import Base
+from datetime import date, datetime
+from sqlalchemy import Column, Integer, Enum, TIMESTAMP, func
 from sqlalchemy.orm import relationship
+from app.config.database import Base
 from app.persistence.model.enum import EnumEstadoFamilia
 
 
@@ -8,38 +9,33 @@ class Familia(Base):
     __tablename__ = 'Familia'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    representanteId = Column(
-        String(36), ForeignKey('Persona.id'), nullable=True)
-    estado = Column(Enum(EnumEstadoFamilia),
-                    default=EnumEstadoFamilia.ACTIVA, nullable=False)
 
-    # Nuevo campo: fecha de creación automática
+    estado = Column(
+        Enum(EnumEstadoFamilia),
+        default=EnumEstadoFamilia.ACTIVA,
+        nullable=False
+    )
+
     fechaCreacion = Column(
         TIMESTAMP,
         nullable=False,
-        server_default=func.now()  # MySQL genera la fecha automáticamente
+        server_default=func.now()
     )
 
-    # Relaciones
-    personas = relationship(
-        "Persona",
+    # Relación SOLO a través de MiembroFamilia
+    miembros = relationship(
+        "MiembroFamilia",
         back_populates="familia",
-        foreign_keys="Persona.idFamilia"
+        cascade="all, delete-orphan"
     )
 
-    representante = relationship(
-        "Persona",
-        foreign_keys=[representanteId],
-        uselist=False
-    )
-
-    def __repr__(self):
-        return f"<Familia(id={self.id}, estado={self.estado}, representanteId={self.representanteId})>"
-
-    def to_dict(self) -> dict:
+    def to_dict(self):
         return {
             "id": self.id,
-            "representanteId": self.representanteId,
-            "estado": self.estado.value if self.estado else None,
-            "fechaCreacion": str(self.fechaCreacion) if self.fechaCreacion else None
+            "estado": self.estado.value if hasattr(self.estado, "value") else self.estado,
+            "fechaCreacion": (
+                self.fechaCreacion.strftime("%Y-%m-%d")
+                if isinstance(self.fechaCreacion, (datetime, date))
+                else self.fechaCreacion
+            )
         }

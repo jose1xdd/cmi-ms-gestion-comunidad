@@ -15,8 +15,10 @@ from app.models.outputs.familia.familia_output import FamiliaResumenOut
 from app.models.outputs.paginated_response import PaginatedPersonas
 from app.models.outputs.response_estado import EstadoResponse
 from app.persistence.model.familia import Familia
+from app.persistence.model.miembro_familia import MiembroFamilia
 from app.persistence.model.persona import Persona
 from app.persistence.repository.familia_repository.interface.interface_familia_repository import IFamiliaRepository
+from app.persistence.repository.miembro_familia_repository.interface.inteface_miembro_familia import IMiembroRepository
 from app.persistence.repository.parcialidad_repository.interface.interface_parcialidad_repository import IParcialiadRepository
 from app.persistence.repository.persona_repository.interface.interface_persona_repository import IPersonaRepository
 from app.persistence.repository.user_repository.interface.interface_user_repository import IUsuarioRepository
@@ -31,12 +33,14 @@ class PersonaManager:
         persona_repository: IPersonaRepository,
         familia_repository: IFamiliaRepository,
         parcialidad_repository: IParcialiadRepository,
+        miembro_repository: IMiembroRepository,
         logger: logging.Logger,
     ):
         self.usuario_repository: IUsuarioRepository = usuario_repository
         self.persona_repository: IPersonaRepository = persona_repository
         self.familia_repository: IFamiliaRepository = familia_repository
         self.parcialidad_repository: IParcialiadRepository = parcialidad_repository
+        self.miembro_repository: IMiembroRepository = miembro_repository
         self.logger = logger
 
     def create_persona(self, data: PersonaCreate) -> EstadoResponse:
@@ -46,8 +50,10 @@ class PersonaManager:
 
         # --- Crear Persona ---
         self.logger.info(f"Creando nueva persona con ID: {data.id}")
-        self.persona_repository.create(data)
-
+        persona_data = data.model_dump(exclude={"idFamilia"})
+        persona = self.persona_repository.create(Persona(**persona_data))
+        self.miembro_repository.create(MiembroFamilia(
+            personaId=persona.id, familiaId=data.idFamilia))
         self.logger.info(f"Persona creada correctamente: {data.id}")
         return EstadoResponse(estado="Exitoso", message="Persona creada exitosamente")
 
@@ -72,7 +78,7 @@ class PersonaManager:
         return paginated
 
     def get_persona(self, id: str):
-        persona = self.persona_repository.get(id)
+        persona = self.persona_repository.find_persona_by_id(id)
         if persona is None:
             raise AppException("Persona no encontrada", 404)
         return persona
@@ -95,9 +101,13 @@ class PersonaManager:
                 self.logger.warning(f"Persona no encontrada: {persona_id}")
                 personas_no_encontradas.append(persona_id)
                 continue
+            miembro_anterior = self.miembro_repository.get_familia_actual(
+                persona_id)
+            if miembro_anterior:
+                self.miembro_repository.delete(miembro_anterior.id)
+            self.miembro_repository.create(MiembroFamilia(
+                personaId=persona_id, familiaId=data.familia_id))
 
-            persona.idFamilia = data.familia_id
-            self.persona_repository.update(persona_id, persona)
             personas_asignadas.append(persona_id)
             self.logger.info(
                 f"Persona asignada a familia {data.familia_id}: {persona_id}")
@@ -127,7 +137,9 @@ class PersonaManager:
                 f"[PersonaManager] Persona no encontrada: {persona_id}")
             raise AppException("La persona indicada no existe")
 
-        if persona.idFamilia is None:
+        miembro = self.miembro_repository.get_familia_actual(persona_id)
+
+        if miembro is None:
             self.logger.info(
                 f"[PersonaManager] Persona {persona_id} ya no pertenece a ninguna familia")
             return EstadoResponse(
@@ -135,13 +147,7 @@ class PersonaManager:
                 message=f"La persona {persona_id} no pertenece a ninguna familia"
             )
 
-        familia = self.familia_repository.get(persona.idFamilia)
-        if (familia.representanteId == persona_id):
-            familia.representanteId = None
-            self.familia_repository.update(familia.id, familia)
-    
-        persona.idFamilia = None
-        self.persona_repository.update(persona_id, persona)
+        self.miembro_repository.delete(miembro.id)
 
         self.logger.info(
             f"[PersonaManager] Persona {persona_id} desasignada correctamente de su familia")

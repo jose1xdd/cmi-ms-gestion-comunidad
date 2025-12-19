@@ -2,10 +2,11 @@ from typing import List, Optional
 from sqlalchemy import or_, func, text, case
 from sqlalchemy.orm import Session, aliased, joinedload
 from app.models.inputs.familia.familia_create import FamiliaCreate
-from app.models.outputs.familia.familia_output import FamiliaDataLeader, FamiliaResumenOut
-from app.models.outputs.persona.persona_output import PersonaFamiliaOut
+from app.models.outputs.familia.familia_output import FamiliaDataLeader, FamiliaOut, FamiliaResumenOut
+from app.models.outputs.persona.persona_output import PersonaFamiliaOut, PersonaOut
 from app.persistence.model.enum import EnumEstadoFamilia
 from app.persistence.model.familia import Familia
+from app.persistence.model.miembro_familia import MiembroFamilia
 from app.persistence.model.parcialidad import Parcialidad
 from app.persistence.model.persona import Persona
 from app.persistence.repository.base_repository.impl.base_repository import BaseRepository
@@ -18,67 +19,117 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
         # Llamar al constructor de la clase base
         super().__init__(Familia, db)
 
+    def get_familias_con_lider(self, page: int, page_size: int):
+        representante = aliased(Persona)
+
+        # Query: solo trae familias y representante activo
+        query = (
+            self.db.query(Familia, MiembroFamilia, representante)
+            .outerjoin(
+                MiembroFamilia,
+                (MiembroFamilia.familiaId == Familia.id) &
+                (MiembroFamilia.esRepresentante == 1) &
+                (MiembroFamilia.activo == 1)
+            )
+            .outerjoin(
+                representante,
+                representante.id == MiembroFamilia.personaId
+            )
+            .order_by(Familia.id)
+        )
+
+        # Paginar resultados
+        result = self.paginate(query=query, page=page, page_size=page_size)
+
+        items = []
+        for familia, miembro, persona in result['items']:
+            familia_out = FamiliaOut(
+                id=familia.id,
+                estado=familia.estado,
+                fechaCreacion=familia.fechaCreacion,
+                representanteId=persona.id if persona else None,
+                representante=PersonaOut.from_orm(persona) if persona else None
+            )
+            items.append(familia_out)
+
+        return {
+            "total_items": result['total_items'],
+            "current_page": result['current_page'],
+            "total_pages": result['total_pages'],
+            "items": items
+        }
+
     def bulk_insert(self, familias: List[FamiliaCreate]) -> int:
         for familia in familias:
             self.create(
-                Familia(id=familia.idFamilia,
-                        representanteId=familia.representanteId)
+                Familia(id=familia.idFamilia)
             )
         return len(familias)
 
     def search_by_representante(
-            self,
-            page: int,
-            page_size: int,
-            query: str,
-            parcialidad_id: int | None = None,
-            rango_miembros: str | None = None,
-            estado: EnumEstadoFamilia | None = None):
+        self,
+        page: int,
+        page_size: int,
+        query: str,
+        parcialidad_id: int | None = None,
+        rango_miembros: str | None = None,
+        estado: EnumEstadoFamilia | None = None
+    ):
+        query_str = query.strip() if query else ""
 
-        query = query.strip() if query else ""
+        # Aliases
+        representante = aliased(Persona)
+        miembro_rep = aliased(MiembroFamilia)
 
-        # Base query con joins
+        # Base query: familias + representante activo
         base_query = (
-            self.db.query(Familia)
-            .outerjoin(Persona, Familia.representanteId == Persona.id)
-            .options(joinedload(Familia.representante), joinedload(Familia.personas))
+            self.db.query(Familia, miembro_rep, representante)
+            .outerjoin(
+                miembro_rep,
+                (miembro_rep.familiaId == Familia.id) &
+                (miembro_rep.esRepresentante == 1) &
+                (miembro_rep.activo == 1)
+            )
+            .outerjoin(
+                representante,
+                representante.id == miembro_rep.personaId
+            )
         )
 
-        # --- FILTRO POR QUERY (documento, nombre, apellido) ---
-        if query:
-            like_query = f"%{query}%"
+        # --- FILTRO POR QUERY ---
+        if query_str:
+            like_query = f"%{query_str}%"
             base_query = base_query.filter(
                 or_(
-                    Persona.id.like(like_query),
-                    func.lower(Persona.nombre).like(func.lower(like_query)),
-                    func.lower(Persona.apellido).like(func.lower(like_query)),
+                    representante.id.like(like_query),
+                    func.lower(representante.nombre).like(
+                        func.lower(like_query)),
+                    func.lower(representante.apellido).like(
+                        func.lower(like_query))
                 )
             )
 
-        # --- FILTRO POR PARCIALIDAD DEL REPRESENTANTE ---
+        # --- FILTRO POR PARCIALIDAD ---
         if parcialidad_id is not None:
             base_query = base_query.filter(
-                Persona.idParcialidad == parcialidad_id)
+                representante.idParcialidad == parcialidad_id)
 
-        # --- FILTRO POR ESTADO DE LA FAMILIA ---
+        # --- FILTRO POR ESTADO ---
         if estado is not None:
             base_query = base_query.filter(Familia.estado == estado)
 
         # --- FILTRO POR CANTIDAD DE MIEMBROS ---
         if rango_miembros:
-            # Subquery para contar miembros por familia
             subq = (
                 self.db.query(
-                    Persona.idFamilia.label("fam_id"),
-                    func.count(Persona.id).label("num_miembros"),
+                    MiembroFamilia.familiaId.label("fam_id"),
+                    func.count(MiembroFamilia.id).label("num_miembros")
                 )
-                .group_by(Persona.idFamilia)
+                .group_by(MiembroFamilia.familiaId)
                 .subquery()
             )
-
-            base_query = base_query.join(
-                subq, subq.c.fam_id == Familia.id, isouter=True
-            )
+            base_query = base_query.outerjoin(
+                subq, subq.c.fam_id == Familia.id)
 
             if rango_miembros == "1-3":
                 base_query = base_query.filter(
@@ -89,43 +140,87 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
             elif rango_miembros == "7+":
                 base_query = base_query.filter(subq.c.num_miembros >= 7)
 
-        # Retornar paginado
-        return self.paginate(page, page_size, base_query)
+        # Orden
+        base_query = base_query.order_by(Familia.id)
+
+        # Ejecutar paginación
+        result = self.paginate(
+            query=base_query, page=page, page_size=page_size)
+
+        # Mapear a Pydantic dentro de la sesión
+        items = []
+        for familia, miembro, persona in result['items']:
+            familia_out = FamiliaOut(
+                id=familia.id,
+                estado=familia.estado,
+                fechaCreacion=familia.fechaCreacion,
+                representanteId=persona.id if persona else None,
+                representante=PersonaOut.from_orm(persona) if persona else None
+            )
+            items.append(familia_out)
+
+        return {
+            "total_items": result['total_items'],
+            "current_page": result['current_page'],
+            "total_pages": result['total_pages'],
+            "items": items
+        }
 
     def get_familias_dashboard(self, page: int, page_size: int):
         """
         Consulta familias con su líder y parcialidad, usando paginate()
         y luego convierte los resultados a FamiliaDataLeader.
         """
-        persona_lider = aliased(Persona)
-        persona_miembro = aliased(Persona)
+        # Aliases
+        lider = aliased(Persona)
+        miembro = aliased(Persona)
+        miembro_familia = aliased(MiembroFamilia)
 
-        # Construimos la query
+        # Query principal
         query = (
             self.db.query(
                 Familia.id.label("id"),
-                persona_lider.nombre.label("lider_nombre"),
-                persona_lider.apellido.label("lider_apellido"),
-                persona_lider.id.label("cedula"),
+                lider.nombre.label("lider_nombre"),
+                lider.apellido.label("lider_apellido"),
+                lider.id.label("cedula"),
                 Parcialidad.nombre.label("parcialidad"),
-                func.count(persona_miembro.id).label("miembros"),
-                Familia.estado.label("estado"),
+                func.count(miembro.id).label("miembros"),
+                Familia.fechaCreacion.label("fechaCreacion"),
+                Familia.estado.label("estado")
+
             )
-            .join(persona_lider, persona_lider.id == Familia.representanteId)
-            .outerjoin(persona_miembro, persona_miembro.idFamilia == Familia.id)
-            .outerjoin(Parcialidad, Parcialidad.id == persona_lider.idParcialidad)
+            # LÍDER: unir solo MiembroFamilia activo y representante
+            .join(
+                miembro_familia,
+                (miembro_familia.familiaId == Familia.id) &
+                (miembro_familia.esRepresentante == 1) &
+                (miembro_familia.activo == 1)
+            )
+            .join(lider, lider.id == miembro_familia.personaId)
+            # PARCIALIDAD del líder
+            .outerjoin(Parcialidad, Parcialidad.id == lider.idParcialidad)
+            # CONTAR MIEMBROS
+            .outerjoin(
+                MiembroFamilia,
+                (MiembroFamilia.familiaId == Familia.id) &
+                (MiembroFamilia.activo == 1)
+            )
+            .outerjoin(miembro, miembro.id == MiembroFamilia.personaId)
             .group_by(
                 Familia.id,
-                persona_lider.nombre,
-                persona_lider.apellido,
-                persona_lider.id,
+                lider.nombre,
+                lider.apellido,
+                lider.id,
                 Parcialidad.nombre,
-                Familia.estado,
+                Familia.estado
             )
+            .order_by(Familia.id)
         )
 
+        # Ejecutar paginación
         result = self.paginate(page, page_size, query)
 
+        # Mapear a Pydantic
         result["items"] = [
             FamiliaDataLeader(
                 id=row.id,
@@ -134,8 +229,9 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
                 cedula=row.cedula,
                 parcialidad=row.parcialidad,
                 miembros=row.miembros,
+                fechaCreacion=row.fechaCreacion,
                 estado=row.estado.value if hasattr(
-                    row.estado, "value") else row.estado,
+                    row.estado, "value") else row.estado
             )
             for row in result["items"]
         ]
@@ -147,43 +243,47 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
         Devuelve los miembros de una familia con información detallada:
         nombre, parentesco, parcialidad, cédula, edad y estado (ACTIVO/FALLECIDO).
         """
-        # 🔹 Calculamos edad (MySQL)
-        edad_expr = func.timestampdiff(
-            text("YEAR"), Persona.fechaNacimiento, func.current_date())
+        # Aliases
+        miembro_fam = aliased(MiembroFamilia)
+        miembro = aliased(Persona)
 
-        # 🔹 Calculamos estado (CASE SQL)
+        # 🔹 Calculamos edad
+        edad_expr = func.timestampdiff(
+            text("YEAR"), miembro.fechaNacimiento, func.current_date())
+
+        # 🔹 Calculamos estado
         estado_expr = case(
-            (Persona.fechaDefuncion.isnot(None), "FALLECIDO"),
+            (miembro.fechaDefuncion.isnot(None), "FALLECIDO"),
             else_="ACTIVO"
         ).label("estado")
 
         # 🔹 Query principal
         q = (
             self.db.query(
-                Persona.id.label("id"),
-                Persona.nombre.label("nombre"),
-                Persona.apellido.label("apellido"),
-                Persona.parentesco.label("parentesco"),
+                miembro.id.label("id"),
+                miembro.nombre.label("nombre"),
+                miembro.apellido.label("apellido"),
+                miembro.parentesco.label("parentesco"),
                 Parcialidad.nombre.label("parcialidad"),
-                Persona.id.label("cedula"),
+                miembro.id.label("cedula"),
                 edad_expr.label("edad"),
-                estado_expr,
+                estado_expr
             )
-            .outerjoin(Parcialidad, Parcialidad.id == Persona.idParcialidad)
-            .filter(Persona.idFamilia == id_familia)
+            .join(miembro_fam, (miembro_fam.personaId == miembro.id) & (miembro_fam.familiaId == id_familia) & (miembro_fam.activo == 1))
+            .outerjoin(Parcialidad, Parcialidad.id == miembro.idParcialidad)
         )
 
         # 🔍 Búsqueda flexible
         if query:
             q = q.filter(
                 or_(
-                    Persona.nombre.ilike(f"%{query}%"),
-                    Persona.apellido.ilike(f"%{query}%"),
-                    Persona.id.like(f"%{query}%"),
+                    miembro.nombre.ilike(f"%{query}%"),
+                    miembro.apellido.ilike(f"%{query}%"),
+                    miembro.id.like(f"%{query}%")
                 )
             )
 
-        # 🔹 Paginación estándar
+        # 🔹 Paginación
         result = self.paginate(page, page_size, q)
 
         # 🔹 Mapeo a modelo Pydantic
@@ -196,7 +296,7 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
                 parcialidad=row.parcialidad,
                 cedula=row.cedula,
                 edad=row.edad,
-                estado=row.estado,
+                estado=row.estado
             )
             for row in result["items"]
         ]
@@ -208,26 +308,33 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
         Devuelve un resumen con los datos principales de una familia.
         Incluye líder, parcialidad, total de miembros, miembros activos y defunciones.
         """
-        persona_lider = aliased(Persona)
-        persona_miembro = aliased(Persona)
+        # Aliases
+        representante = aliased(Persona)
+        miembro = aliased(Persona)
+        miembro_familia = aliased(MiembroFamilia)
 
         query = (
             self.db.query(
                 Familia.id.label("id"),
-                func.concat(persona_lider.nombre, " ",
-                            persona_lider.apellido).label("lider_familia"),
+                func.concat(representante.nombre, " ",
+                            representante.apellido).label("lider_familia"),
                 Parcialidad.nombre.label("parcialidad"),
-                func.count(persona_miembro.id).label("total_miembros"),
-                func.sum(func.if_(persona_miembro.fechaDefuncion.is_(
+                func.count(miembro.id).label("total_miembros"),
+                func.sum(func.if_(miembro.fechaDefuncion.is_(
                     None), 1, 0)).label("miembros_activos"),
-                func.sum(func.if_(persona_miembro.fechaDefuncion.isnot(
+                func.sum(func.if_(miembro.fechaDefuncion.isnot(
                     None), 1, 0)).label("defunciones"),
+                Familia.fechaCreacion.label("fechaCreacion")
             )
-            .join(persona_lider, persona_lider.id == Familia.representanteId)
-            .outerjoin(persona_miembro, persona_miembro.idFamilia == Familia.id)
-            .outerjoin(Parcialidad, Parcialidad.id == persona_lider.idParcialidad)
+            # Unimos al representante a través de MiembroFamilia
+            .join(MiembroFamilia, (MiembroFamilia.familiaId == Familia.id) & (MiembroFamilia.esRepresentante == True))
+            .join(representante, representante.id == MiembroFamilia.personaId)
+            # Contamos todos los miembros
+            .outerjoin(miembro_familia, miembro_familia.familiaId == Familia.id)
+            .outerjoin(miembro, miembro.id == miembro_familia.personaId)
+            .outerjoin(Parcialidad, Parcialidad.id == representante.idParcialidad)
             .filter(Familia.id == id_familia)
-            .group_by(Familia.id, persona_lider.nombre, persona_lider.apellido, Parcialidad.nombre)
+            .group_by(Familia.id, representante.nombre, representante.apellido, Parcialidad.nombre)
         )
 
         result = query.first()
@@ -241,6 +348,7 @@ class FamiliaRepository(BaseRepository, IFamiliaRepository):
             total_miembros=result.total_miembros or 0,
             miembros_activos=result.miembros_activos or 0,
             defunciones=result.defunciones or 0,
+            fechaCreacion=result.fechaCreacion
         )
 
     def get_estadisticas_generales(self) -> dict:

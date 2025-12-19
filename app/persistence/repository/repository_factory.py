@@ -2,6 +2,8 @@ from typing import Type, TypeVar
 from sqlalchemy.orm import Session
 from app.persistence.repository.familia_repository.impl.familia_repository import FamiliaRepository
 from app.persistence.repository.familia_repository.interface.interface_familia_repository import IFamiliaRepository
+from app.persistence.repository.miembro_familia_repository.impl.miembro_familia_repository import MiembroRepository
+from app.persistence.repository.miembro_familia_repository.interface.inteface_miembro_familia import IMiembroRepository
 from app.persistence.repository.parcialidad_repository.impl.parcialidad_repository import ParcialidadRepository
 from app.persistence.repository.parcialidad_repository.interface.interface_parcialidad_repository import IParcialiadRepository
 from app.persistence.repository.persona_repository.impl.persona_repository import PersonaRepository
@@ -21,7 +23,8 @@ class RepositoryFactory:
         IUsuarioRepository: UsuarioRepository,
         IPersonaRepository: PersonaRepository,
         IFamiliaRepository: FamiliaRepository,
-        IParcialiadRepository: ParcialidadRepository
+        IParcialiadRepository: ParcialidadRepository,
+        IMiembroRepository: MiembroRepository
     }
 
     def get_repository(self, interface: Type[T]) -> T:
